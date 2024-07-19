@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program;
 use solana_program::pubkey;
+use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::system_instruction;
+
 
 extern crate chrono;
 use chrono::prelude::*;
@@ -26,14 +28,25 @@ pub mod my_program {
         let datetime: DateTime<Utc>;
         let newdate: chrono::format::DelayedFormat<chrono::format::StrftimeItems>;
 
-        let cpi_context = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            system_program::Transfer {
-                from: ctx.accounts.payer.to_account_info().clone(),
-                to: ctx.accounts.receiver.to_account_info().clone(),
-            },
+        let transfer_instruction = system_instruction::transfer(
+            &ctx.accounts.payer.key(),
+            &HARDCODED_PUBKEY.key(),
+            RENEWAL,
         );
-        system_program::transfer(cpi_context, RENEWAL)?;
+
+        invoke(
+            &transfer_instruction,
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.receiver.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )
+        .map_err(|err| {
+            msg!("CPI failed: {:?}", err);
+            err
+        })?;
+
         
         if storage.end_date != 0 {
             storage.end_date += 2629743;
